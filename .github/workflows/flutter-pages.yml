@@ -1,8 +1,11 @@
-name: Build & Deploy Flutter Web to GitHub Pages
+name: Flutter Web Deploy
 
 on:
   push:
     branches: [ main ]
+
+permissions:
+  contents: write  # 👈 gives Actions permission to push to gh-pages
 
 jobs:
   build:
@@ -17,13 +20,16 @@ jobs:
         with:
           flutter-version: '3.35.5'
 
-      - name: Enable web and build
-        run: |
-          flutter config --enable-web
-          flutter build web --release
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web release
+        run: flutter build web --release
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
           publish_dir: ./build/web
+          force_orphan: true  # 👈 ensures a clean gh-pages branch
