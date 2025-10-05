@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write  # 👈 gives Actions permission to push to gh-pages
+  contents: write
 
 jobs:
   build:
@@ -23,8 +23,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build web release
-        run: flutter build web --release
+      - name: Build web release (GitHub Pages subfolder)
+        run: flutter build web --release --base-href "/mileage-tracker/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -32,4 +32,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: ./build/web
-          force_orphan: true  # 👈 ensures a clean gh-pages branch
+          force_orphan: true
