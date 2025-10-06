@@ -45,6 +45,22 @@ lib/
 4. History screen observes repository stream to refresh list view.
 5. Export actions delegate to `ExportService` to build CSV files.
 
+## Data Model
+- **Trip**
+  - Represents a single recorded journey with a `startTime`, `endTime`, and geospatial coordinates captured as `GeoPoint` snapshots for both the beginning and end of the trip.
+  - Stores odometer readings (`startOdometer`, `endOdometer`) to derive distance, as well as the `vehicleId` that links the trip to a specific vehicle.
+  - Optionally embeds denormalised `Vehicle` and `SavedLocation` snapshots to make presenting historic data in the UI resilient to later edits.
+  - Supports free-form metadata via `notes` and an array of string `tags` to enable categorisation even before a richer tagging system exists.
+- **Vehicle**
+  - Defines the set of cars the user can associate with trips, including display metadata (`displayName`, `make`, `model`, `year`, `licensePlate`).
+  - Carries an optional `defaultOdometer` for seeding future trip entries and an `isActive` flag so the app can surface the most commonly used vehicle by default.
+- **SavedLocation**
+  - Allows users to bookmark frequently used places, combining a human readable `label`, geographic `position`, optional `addressLine`, and `notes` for context.
+  - Trips reference saved locations through both `startLocationId` / `endLocationId` foreign keys and cached `SavedLocation` objects for offline friendliness.
+- **GeoPoint**
+  - Lightweight value object that constrains latitude and longitude to valid ranges and serialises cleanly for persistence.
+  - Reused by both trips and saved locations to represent map coordinates without tying the data model to a specific geolocation provider.
+
 ## Key Decisions
 - Keep controllers lightweight; consider `Riverpod` or `Provider` for state management once complexity grows.
 - SQLite chosen over Hive for relational querying of trips and vehicles.
