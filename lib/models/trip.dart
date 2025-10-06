@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'geo_point.dart';
 import 'saved_location.dart';
 import 'vehicle.dart';
@@ -49,7 +51,8 @@ class Trip {
 
   Duration get duration => endTime.difference(startTime);
 
-  double get distance => (endOdometer - startOdometer).clamp(0, double.infinity);
+  double get distance =>
+      math.max(0.0, endOdometer - startOdometer);
 
   Trip copyWith({
     String? id,
