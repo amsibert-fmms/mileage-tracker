@@ -6,6 +6,8 @@ import 'vehicle.dart';
 
 /// Core domain entity capturing a mileage trip.
 class Trip {
+  static const Object _unset = Object();
+
   const Trip({
     required this.id,
     required this.startTime,
@@ -63,12 +65,12 @@ class Trip {
     double? startOdometer,
     double? endOdometer,
     String? vehicleId,
-    Vehicle? vehicle,
-    String? startLocationId,
-    String? endLocationId,
-    SavedLocation? startLocation,
-    SavedLocation? endLocation,
-    String? notes,
+    Object? vehicle = _unset,
+    Object? startLocationId = _unset,
+    Object? endLocationId = _unset,
+    Object? startLocation = _unset,
+    Object? endLocation = _unset,
+    Object? notes = _unset,
     List<String>? tags,
   }) {
     return Trip(
@@ -80,12 +82,21 @@ class Trip {
       startOdometer: startOdometer ?? this.startOdometer,
       endOdometer: endOdometer ?? this.endOdometer,
       vehicleId: vehicleId ?? this.vehicleId,
-      vehicle: vehicle ?? this.vehicle,
-      startLocationId: startLocationId ?? this.startLocationId,
-      endLocationId: endLocationId ?? this.endLocationId,
-      startLocation: startLocation ?? this.startLocation,
-      endLocation: endLocation ?? this.endLocation,
-      notes: notes ?? this.notes,
+      vehicle: identical(vehicle, _unset) ? this.vehicle : vehicle as Vehicle?,
+      startLocationId: identical(startLocationId, _unset)
+          ? this.startLocationId
+          : startLocationId as String?,
+      endLocationId: identical(endLocationId, _unset)
+          ? this.endLocationId
+          : endLocationId as String?,
+      startLocation: identical(startLocation, _unset)
+          ? this.startLocation
+          : startLocation as SavedLocation?,
+      endLocation: identical(endLocation, _unset)
+          ? this.endLocation
+          : endLocation as SavedLocation?,
+      notes:
+          identical(notes, _unset) ? this.notes : notes as String?,
       tags: tags ?? this.tags,
     );
   }
