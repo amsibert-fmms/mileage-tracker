@@ -11,7 +11,7 @@
 - [ ] Active vehicle can be selected at trip start.
 - [ ] Vehicle list stores make, model, plate, and notes.
 - [ ] Optional odometer adjustment slider allows manual override.
-- [ ] Trip can be tagged as Business, Personal, Commute, or Other.
+- [x] Trip can be tagged as Business, Personal, Commute, or Other.
 - [ ] Last used vehicle and tag selections surface automatically to minimise taps.
 
 ## Location Handling
