@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mileage_tracker/controllers/trip_controller.dart';
 import 'package:mileage_tracker/models/trip_category.dart';
+import 'package:mileage_tracker/models/trip_category_summary.dart';
 import 'package:mileage_tracker/models/vehicle.dart';
 import 'package:mileage_tracker/services/distance_estimator.dart';
 
@@ -30,6 +31,60 @@ void main() {
         controller.toggleTrip();
         expect(controller.tripActive, isFalse);
         expect(controller.lastCompletedTrip, isNotNull);
+
+        controller.dispose();
+      });
+    });
+
+    test('summarises history by category', () {
+      fakeAsync((async) {
+        final controller = TripController(
+          vehicles: _vehicles,
+          distanceEstimator: const DistanceEstimator(fallbackSpeedKph: 60),
+        );
+
+        controller.selectCategory(TripCategory.business);
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 30));
+        controller.toggleTrip();
+
+        controller.selectCategory(TripCategory.personal);
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 15));
+        controller.toggleTrip();
+
+        controller.selectCategory(TripCategory.business);
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 45));
+        controller.toggleTrip();
+
+        final summaries = controller.categorySummaries;
+        final businessSummary = summaries
+            .firstWhere((summary) => summary.category == TripCategory.business);
+        final personalSummary = summaries
+            .firstWhere((summary) => summary.category == TripCategory.personal);
+
+        expect(businessSummary.tripCount, 2);
+        expect(businessSummary.totalDuration, const Duration(minutes: 75));
+        expect(
+          businessSummary.totalDistanceKm,
+          isNotNull,
+        );
+        expect(
+          businessSummary.totalDistanceKm!,
+          closeTo(75.0, 0.1),
+        );
+        expect(
+          businessSummary.averageDistanceKm,
+          closeTo(37.5, 0.1),
+        );
+
+        expect(personalSummary.tripCount, 1);
+        expect(personalSummary.totalDuration, const Duration(minutes: 15));
+        expect(
+          personalSummary.totalDistanceKm,
+          closeTo(15.0, 0.1),
+        );
 
         controller.dispose();
       });

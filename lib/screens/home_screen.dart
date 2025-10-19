@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/trip_controller.dart';
 import '../models/trip_category.dart';
+import '../models/trip_category_summary.dart';
 import '../models/trip_log_entry.dart';
 import '../models/vehicle.dart';
 
@@ -42,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final tripHistory = _controller.tripHistory;
         final totalDuration = _controller.totalLoggedDuration;
         final totalDistance = _controller.totalLoggedDistanceKm;
+        final categorySummaries = _controller.categorySummaries;
+        final hasHistory = tripHistory.isNotEmpty;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Mileage Tracker')),
@@ -85,13 +88,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 24),
-                if (tripHistory.isNotEmpty)
+                if (hasHistory)
                   _SummaryCard(
                     totalTrips: tripHistory.length,
                     totalDurationLabel: _formatDuration(totalDuration),
                     totalDistanceLabel: _formatDistanceLong(totalDistance),
                   ),
-                if (tripHistory.isNotEmpty) const SizedBox(height: 24),
+                if (hasHistory) const SizedBox(height: 16),
+                if (hasHistory)
+                  _CategoryBreakdownCard(
+                    summaries: categorySummaries,
+                    totalTrips: tripHistory.length,
+                    durationFormatter: _formatDuration,
+                    distanceFormatter: _formatDistanceLong,
+                  ),
+                if (hasHistory) const SizedBox(height: 24),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -120,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                if (tripHistory.isNotEmpty) ...[
+                if (hasHistory) ...[
                   const Divider(),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -130,26 +141,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: tripHistory.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final entry = tripHistory[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading:
-                            const Icon(Icons.check_circle_outline, color: Colors.teal),
-                        title: Text(
-                          '${_formatTime(entry.startTime)} - ${_formatTime(entry.endTime)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          '${entry.vehicleName} · ${entry.category.label} · ${_formatDuration(entry.duration)} · ${_formatDistanceShort(entry.distanceKm)} · ${_formatSpeedShort(entry.averageSpeedKph)}',
-                        ),
-                      );
-                    },
+                  Flexible(
+                    child: ListView.separated(
+                      itemCount: tripHistory.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final entry = tripHistory[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(
+                            Icons.check_circle_outline,
+                            color: Colors.teal,
+                          ),
+                          title: Text(
+                            '${_formatTime(entry.startTime)} - ${_formatTime(entry.endTime)}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '${entry.vehicleName} · ${entry.category.label} · ${_formatDuration(entry.duration)} · ${_formatDistanceShort(entry.distanceKm)} · ${_formatSpeedShort(entry.averageSpeedKph)}',
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ],
@@ -221,6 +234,112 @@ class _HomeScreenState extends State<HomeScreen> {
     return speedKph == null
         ? '-- km/h'
         : '${speedKph.toStringAsFixed(1)} km/h';
+  }
+}
+
+class _CategoryBreakdownCard extends StatelessWidget {
+  const _CategoryBreakdownCard({
+    required this.summaries,
+    required this.totalTrips,
+    required this.durationFormatter,
+    required this.distanceFormatter,
+  });
+
+  final List<TripCategorySummary> summaries;
+  final int totalTrips;
+  final String Function(Duration duration) durationFormatter;
+  final String Function(double? distanceKm) distanceFormatter;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = summaries.where((summary) => summary.tripCount > 0).toList();
+    if (entries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Trip breakdown',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            for (final summary in entries) ...[
+              _CategoryBreakdownTile(
+                summary: summary,
+                percentage: totalTrips == 0 ? 0 : summary.tripCount / totalTrips,
+                durationFormatter: durationFormatter,
+                distanceFormatter: distanceFormatter,
+              ),
+              if (summary != entries.last) const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryBreakdownTile extends StatelessWidget {
+  const _CategoryBreakdownTile({
+    required this.summary,
+    required this.percentage,
+    required this.durationFormatter,
+    required this.distanceFormatter,
+  });
+
+  final TripCategorySummary summary;
+  final double percentage;
+  final String Function(Duration duration) durationFormatter;
+  final String Function(double? distanceKm) distanceFormatter;
+
+  @override
+  Widget build(BuildContext context) {
+    final percentLabel = '${(percentage * 100).round()}%';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              summary.category.label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              '${summary.tripCount} trips · $percentLabel',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: percentage.clamp(0, 1),
+            minHeight: 6,
+            backgroundColor: Colors.teal.shade50,
+            color: Colors.teal,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Time: ${durationFormatter(summary.totalDuration)} · Distance: ${distanceFormatter(summary.totalDistanceKm)}',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.grey.shade700),
+        ),
+      ],
+    );
   }
 }
 

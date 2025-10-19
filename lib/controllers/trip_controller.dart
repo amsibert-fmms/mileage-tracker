@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/trip_category.dart';
+import '../models/trip_category_summary.dart';
 import '../models/trip_log_entry.dart';
 import '../models/vehicle.dart';
 import '../services/distance_estimator.dart';
@@ -42,6 +43,36 @@ class TripController extends ChangeNotifier {
   List<TripLogEntry> get tripHistory => List<TripLogEntry>.unmodifiable(_tripHistory);
   TripCategory get selectedCategory => _selectedCategory;
   String? get activeVehicleId => _activeVehicleId;
+  List<TripCategorySummary> get categorySummaries {
+    final aggregates = <TripCategory, _MutableCategorySummary>{
+      for (final category in TripCategory.values)
+        category: _MutableCategorySummary(),
+    };
+
+    for (final entry in _tripHistory) {
+      final aggregate = aggregates[entry.category]!;
+      aggregate.tripCount++;
+      aggregate.totalDuration += entry.duration;
+      final distance = entry.distanceKm;
+      if (distance != null) {
+        aggregate.totalDistanceKm += distance;
+        aggregate.hasDistance = true;
+      }
+    }
+
+    return TripCategory.values
+        .map(
+          (category) => TripCategorySummary(
+            category: category,
+            tripCount: aggregates[category]!.tripCount,
+            totalDuration: aggregates[category]!.totalDuration,
+            totalDistanceKm: aggregates[category]!.hasDistance
+                ? aggregates[category]!.totalDistanceKm
+                : null,
+          ),
+        )
+        .toList(growable: false);
+  }
   Vehicle? get currentVehicle {
     if (_vehicles.isEmpty) {
       return null;
@@ -168,4 +199,11 @@ class TripController extends ChangeNotifier {
     _timer?.cancel();
     super.dispose();
   }
+}
+
+class _MutableCategorySummary {
+  int tripCount = 0;
+  Duration totalDuration = Duration.zero;
+  double totalDistanceKm = 0;
+  bool hasDistance = false;
 }

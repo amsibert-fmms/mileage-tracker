@@ -8,6 +8,7 @@ Mileage Tracker is a Flutter application designed to capture business mileage wi
 - Automatic calculation of trip duration, estimated distance, and average speed once a trip ends.
 - Quick vehicle selection keeps the last used vehicle preselected for faster logging.
 - At-a-glance summary cards highlight total trips, logged time, and estimated distance for rapid reviews.
+- Category breakdown cards visualise how trip purpose usage shifts across business, personal, commute, and other journeys.
 - Trip categorisation (Business, Personal, Commute, Other) with room for additional notes or tags.
 - Works offline-first: trips persist locally before any optional cloud sync occurs.
 
@@ -55,6 +56,7 @@ considered once the Android release is stable and telemetry confirms feature com
 - [`architecture_notes.md`](architecture_notes.md) – data flow, module structure, and entities.
 - [`MVP Checklist.md`](MVP%20Checklist.md) – current implementation to-do list.
 - [`DEVELOPMENT_SETUP.md`](DEVELOPMENT_SETUP.md) – environment setup details.
+- [`docs/analytics_plan.md`](docs/analytics_plan.md) – upcoming analytics enhancements and research backlog.
 
 ## Roadmap highlights
 - Background auto-trip mode triggered by motion or Bluetooth beacons.
