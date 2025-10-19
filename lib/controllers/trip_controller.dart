@@ -42,12 +42,47 @@ class TripController extends ChangeNotifier {
   List<TripLogEntry> get tripHistory => List<TripLogEntry>.unmodifiable(_tripHistory);
   TripCategory get selectedCategory => _selectedCategory;
   String? get activeVehicleId => _activeVehicleId;
-  Vehicle get currentVehicle =>
-      _vehicles.firstWhere((vehicle) => vehicle.id == _activeVehicleId,
-          orElse: () => _vehicles.first);
+  Vehicle? get currentVehicle {
+    if (_vehicles.isEmpty) {
+      return null;
+    }
+    if (_activeVehicleId == null) {
+      return _vehicles.first;
+    }
+    for (final vehicle in _vehicles) {
+      if (vehicle.id == _activeVehicleId) {
+        return vehicle;
+      }
+    }
+    return _vehicles.first;
+  }
+
+  bool get hasVehicles => _vehicles.isNotEmpty;
+
+  Duration get totalLoggedDuration => _tripHistory.fold<Duration>(
+        Duration.zero,
+        (total, entry) => total + entry.duration,
+      );
+
+  double? get totalLoggedDistanceKm {
+    double runningTotal = 0;
+    var hasValue = false;
+    for (final entry in _tripHistory) {
+      final distance = entry.distanceKm;
+      if (distance != null) {
+        runningTotal += distance;
+        hasValue = true;
+      }
+    }
+    return hasValue ? runningTotal : null;
+  }
 
   void setActiveVehicle(String vehicleId) {
     if (_tripActive || _activeVehicleId == vehicleId) {
+      return;
+    }
+    final hasVehicle = _vehicles.any((vehicle) => vehicle.id == vehicleId);
+    if (!hasVehicle) {
       return;
     }
     _activeVehicleId = vehicleId;
@@ -71,6 +106,10 @@ class TripController extends ChangeNotifier {
   }
 
   void _startTrip() {
+    if (_vehicles.isEmpty) {
+      return;
+    }
+
     _timer?.cancel();
     _tripActive = true;
     _startTime = DateTime.now();
@@ -102,7 +141,7 @@ class TripController extends ChangeNotifier {
     final entry = TripLogEntry(
       startTime: _startTime!,
       endTime: endTime,
-      vehicleName: currentVehicle.displayName,
+      vehicleName: currentVehicle?.displayName ?? 'Unknown vehicle',
       category: _selectedCategory,
       duration: duration,
       distanceKm: distanceKm,

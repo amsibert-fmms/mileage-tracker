@@ -40,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, _) {
         final statusText = _buildStatusText();
         final tripHistory = _controller.tripHistory;
+        final totalDuration = _controller.totalLoggedDuration;
+        final totalDistance = _controller.totalLoggedDistanceKm;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Mileage Tracker')),
@@ -83,6 +85,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 24),
+                if (tripHistory.isNotEmpty)
+                  _SummaryCard(
+                    totalTrips: tripHistory.length,
+                    totalDurationLabel: _formatDuration(totalDuration),
+                    totalDistanceLabel: _formatDistanceLong(totalDistance),
+                  ),
+                if (tripHistory.isNotEmpty) const SizedBox(height: 24),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -154,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _buildStatusText() {
     if (_controller.tripActive) {
       final startTime = _controller.startTime!;
-      final vehicleLabel = _controller.currentVehicle.displayName;
+      final vehicleLabel = _controller.currentVehicle?.displayName ?? 'Unknown vehicle';
       return 'Trip started at ${_formatTime(startTime)}\n'
           'Vehicle: $vehicleLabel\n'
           'Category: ${_controller.selectedCategory.label}\n'
@@ -212,5 +221,111 @@ class _HomeScreenState extends State<HomeScreen> {
     return speedKph == null
         ? '-- km/h'
         : '${speedKph.toStringAsFixed(1)} km/h';
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.totalTrips,
+    required this.totalDurationLabel,
+    required this.totalDistanceLabel,
+  });
+
+  final int totalTrips;
+  final String totalDurationLabel;
+  final String totalDistanceLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 360;
+            final content = [
+              _SummaryTile(
+                label: 'Trips',
+                value: '$totalTrips',
+                icon: Icons.map_outlined,
+              ),
+              _SummaryTile(
+                label: 'Time logged',
+                value: totalDurationLabel,
+                icon: Icons.schedule_outlined,
+              ),
+              _SummaryTile(
+                label: 'Distance',
+                value: totalDistanceLabel,
+                icon: Icons.social_distance_outlined,
+              ),
+            ];
+
+            if (isCompact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < content.length; i++) ...[
+                    content[i],
+                    if (i < content.length - 1) const SizedBox(height: 12),
+                  ],
+                ],
+              );
+            }
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: content
+                  .map(
+                    (tile) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: tile,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, color: Colors.teal.shade700),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.grey.shade600),
+        ),
+      ],
+    );
   }
 }

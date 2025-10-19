@@ -82,5 +82,45 @@ void main() {
         controller.dispose();
       });
     });
+
+    test('aggregates total duration and distance from history', () {
+      fakeAsync((async) {
+        final controller = TripController(
+          vehicles: _vehicles,
+          distanceEstimator: const DistanceEstimator(fallbackSpeedKph: 60),
+        );
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 30));
+        controller.toggleTrip();
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 15));
+        controller.toggleTrip();
+
+        expect(controller.tripHistory, hasLength(2));
+        expect(controller.totalLoggedDuration, const Duration(minutes: 45));
+        expect(
+          controller.totalLoggedDistanceKm,
+          closeTo(45.0, 0.1),
+        );
+
+        controller.dispose();
+      });
+    });
+
+    test('does not start trips when there are no vehicles', () {
+      fakeAsync((async) {
+        final controller = TripController(vehicles: const []);
+
+        controller.toggleTrip();
+
+        expect(controller.tripActive, isFalse);
+        expect(controller.startTime, isNull);
+        expect(controller.currentVehicle, isNull);
+
+        controller.dispose();
+      });
+    });
   });
 }
