@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'geo_point.dart';
 import 'saved_location.dart';
+import 'trip_category.dart';
 import 'vehicle.dart';
 
 /// Core domain entity capturing a mileage trip.
@@ -17,12 +18,15 @@ class Trip {
     required this.startOdometer,
     required this.endOdometer,
     required this.vehicleId,
+    required this.category,
     this.vehicle,
     this.startLocationId,
     this.endLocationId,
     this.startLocation,
     this.endLocation,
     this.notes,
+    this.startAddress,
+    this.endAddress,
     this.tags = const <String>[],
   }) : assert(endTime.isAfter(startTime), 'End time must be after start time.');
 
@@ -34,6 +38,7 @@ class Trip {
   final double startOdometer;
   final double endOdometer;
   final String vehicleId;
+  final TripCategory category;
 
   /// Optional vehicle snapshot at the time of the trip.
   final Vehicle? vehicle;
@@ -47,6 +52,8 @@ class Trip {
   final SavedLocation? endLocation;
 
   final String? notes;
+  final String? startAddress;
+  final String? endAddress;
 
   /// Free form tags (e.g. "Personal", "Client A") until tagging entity exists.
   final List<String> tags;
@@ -65,12 +72,15 @@ class Trip {
     double? startOdometer,
     double? endOdometer,
     String? vehicleId,
+    TripCategory? category,
     Object? vehicle = _unset,
     Object? startLocationId = _unset,
     Object? endLocationId = _unset,
     Object? startLocation = _unset,
     Object? endLocation = _unset,
     Object? notes = _unset,
+    Object? startAddress = _unset,
+    Object? endAddress = _unset,
     List<String>? tags,
   }) {
     return Trip(
@@ -82,6 +92,7 @@ class Trip {
       startOdometer: startOdometer ?? this.startOdometer,
       endOdometer: endOdometer ?? this.endOdometer,
       vehicleId: vehicleId ?? this.vehicleId,
+      category: category ?? this.category,
       vehicle: identical(vehicle, _unset) ? this.vehicle : vehicle as Vehicle?,
       startLocationId: identical(startLocationId, _unset)
           ? this.startLocationId
@@ -97,6 +108,12 @@ class Trip {
           : endLocation as SavedLocation?,
       notes:
           identical(notes, _unset) ? this.notes : notes as String?,
+      startAddress: identical(startAddress, _unset)
+          ? this.startAddress
+          : startAddress as String?,
+      endAddress: identical(endAddress, _unset)
+          ? this.endAddress
+          : endAddress as String?,
       tags: tags ?? this.tags,
     );
   }
@@ -110,10 +127,13 @@ class Trip {
         'startOdometer': startOdometer,
         'endOdometer': endOdometer,
         'vehicleId': vehicleId,
+        'category': category.name,
         'vehicle': vehicle?.toJson(),
         'startLocationId': startLocationId,
         'endLocationId': endLocationId,
         'notes': notes,
+        'startAddress': startAddress,
+        'endAddress': endAddress,
         'tags': tags,
         'startLocation': startLocation?.toJson(),
         'endLocation': endLocation?.toJson(),
@@ -130,12 +150,18 @@ class Trip {
       startOdometer: (json['startOdometer'] as num).toDouble(),
       endOdometer: (json['endOdometer'] as num).toDouble(),
       vehicleId: json['vehicleId'] as String,
+      category: TripCategory.values.firstWhere(
+        (value) => value.name == json['category'],
+        orElse: () => TripCategory.business,
+      ),
       vehicle: json['vehicle'] == null
           ? null
           : Vehicle.fromJson(json['vehicle'] as Map<String, dynamic>),
       startLocationId: json['startLocationId'] as String?,
       endLocationId: json['endLocationId'] as String?,
       notes: json['notes'] as String?,
+      startAddress: json['startAddress'] as String?,
+      endAddress: json['endAddress'] as String?,
       tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[])
           .cast<String>(),
       startLocation: json['startLocation'] == null
@@ -169,11 +195,14 @@ class Trip {
         other.startOdometer == startOdometer &&
         other.endOdometer == endOdometer &&
         other.vehicleId == vehicleId &&
+        other.category == category &&
         other.startLocationId == startLocationId &&
         other.endLocationId == endLocationId &&
         other.startLocation == startLocation &&
         other.endLocation == endLocation &&
         other.notes == notes &&
+        other.startAddress == startAddress &&
+        other.endAddress == endAddress &&
         _listEquals(other.tags, tags);
   }
 
@@ -187,11 +216,14 @@ class Trip {
       startOdometer,
       endOdometer,
       vehicleId,
+      category,
       startLocationId,
       endLocationId,
       startLocation,
       endLocation,
       notes,
+      startAddress,
+      endAddress,
       Object.hashAll(tags));
 }
 
