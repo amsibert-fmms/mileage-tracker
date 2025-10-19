@@ -43,6 +43,7 @@ class TripController extends ChangeNotifier {
   List<TripLogEntry> get tripHistory => List<TripLogEntry>.unmodifiable(_tripHistory);
   TripCategory get selectedCategory => _selectedCategory;
   String? get activeVehicleId => _activeVehicleId;
+  bool get hasHistory => _tripHistory.isNotEmpty;
   List<TripCategorySummary> get categorySummaries {
     final aggregates = <TripCategory, _MutableCategorySummary>{
       for (final category in TripCategory.values)
@@ -106,6 +107,25 @@ class TripController extends ChangeNotifier {
       }
     }
     return hasValue ? runningTotal : null;
+  }
+
+  double? get totalLoggedAverageSpeedKph {
+    final totalDistance = totalLoggedDistanceKm;
+    if (totalDistance == null) {
+      return null;
+    }
+
+    final totalDurationSeconds = totalLoggedDuration.inSeconds;
+    if (totalDurationSeconds <= 0) {
+      return null;
+    }
+
+    final hours = totalDurationSeconds / 3600;
+    if (hours <= 0) {
+      return null;
+    }
+
+    return totalDistance / hours;
   }
 
   void setActiveVehicle(String vehicleId) {
@@ -191,6 +211,50 @@ class TripController extends ChangeNotifier {
       _tripHistory.removeRange(_maxHistoryItems, _tripHistory.length);
     }
 
+    notifyListeners();
+  }
+
+  TripLogEntry? removeTripAt(int index) {
+    if (_tripActive || index < 0 || index >= _tripHistory.length) {
+      return null;
+    }
+
+    final removed = _tripHistory.removeAt(index);
+    _lastCompletedTrip = _tripHistory.isEmpty ? null : _tripHistory.first;
+    notifyListeners();
+    return removed;
+  }
+
+  void restoreTrip(TripLogEntry entry, {int? index}) {
+    if (_tripActive) {
+      return;
+    }
+
+    final rawIndex = index ?? 0;
+    final targetIndex = rawIndex < 0
+        ? 0
+        : rawIndex > _tripHistory.length
+            ? _tripHistory.length
+            : rawIndex;
+    _tripHistory.insert(targetIndex, entry);
+    if (_tripHistory.length > _maxHistoryItems) {
+      _tripHistory.removeRange(_maxHistoryItems, _tripHistory.length);
+    }
+
+    _lastCompletedTrip = _tripHistory.isEmpty ? null : _tripHistory.first;
+    notifyListeners();
+  }
+
+  void clearHistory() {
+    if (_tripHistory.isEmpty) {
+      return;
+    }
+    if (_tripActive) {
+      return;
+    }
+
+    _tripHistory.clear();
+    _lastCompletedTrip = null;
     notifyListeners();
   }
 
