@@ -1,30 +1,40 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mileage_tracker/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('user can log a personal trip with category selection',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const MileageTrackerApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('No trip in progress'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    final personalChip =
+        find.widgetWithText(ChoiceChip, 'Personal');
+    await tester.tap(personalChip);
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    final chipWidget = tester.widget<ChoiceChip>(personalChip);
+    expect(chipWidget.selected, isTrue);
+
+    await tester.tap(find.text('Start Trip'));
+    await tester.pump();
+
+    expect(find.textContaining('Category: Personal'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.tap(find.text('Stop Trip'));
+    await tester.pump();
+
+    expect(find.text('Start Trip'), findsOneWidget);
+    expect(find.text('Recent trips'), findsOneWidget);
+    expect(find.textContaining('Trip from'), findsOneWidget);
+
+    final listTile = tester.widget<ListTile>(find.byType(ListTile).first);
+    final subtitle = listTile.subtitle as Text;
+    expect(subtitle.data, isNotNull);
+    expect(subtitle.data!, contains('Personal · Elapsed'));
   });
 }

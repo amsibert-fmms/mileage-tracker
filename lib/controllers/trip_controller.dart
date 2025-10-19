@@ -1,0 +1,273 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import '../models/trip_category.dart';
+import '../models/trip_category_summary.dart';
+import '../models/trip_log_entry.dart';
+import '../models/vehicle.dart';
+import '../services/distance_estimator.dart';
+
+class TripController extends ChangeNotifier {
+  TripController({
+    required List<Vehicle> vehicles,
+    DistanceEstimator? distanceEstimator,
+    int maxHistoryItems = 5,
+  })  : _vehicles = List<Vehicle>.unmodifiable(vehicles),
+        _distanceEstimator = distanceEstimator ?? const DistanceEstimator(),
+        _maxHistoryItems = maxHistoryItems {
+    if (_vehicles.isNotEmpty) {
+      _activeVehicleId = _vehicles.first.id;
+    }
+  }
+
+  final List<Vehicle> _vehicles;
+  final DistanceEstimator _distanceEstimator;
+  final int _maxHistoryItems;
+
+  bool _tripActive = false;
+  DateTime? _startTime;
+  Duration _elapsed = Duration.zero;
+  TripLogEntry? _lastCompletedTrip;
+  Timer? _timer;
+
+  final List<TripLogEntry> _tripHistory = <TripLogEntry>[];
+  TripCategory _selectedCategory = TripCategory.business;
+  String? _activeVehicleId;
+
+  List<Vehicle> get vehicles => _vehicles;
+  bool get tripActive => _tripActive;
+  DateTime? get startTime => _startTime;
+  Duration get elapsed => _elapsed;
+  TripLogEntry? get lastCompletedTrip => _lastCompletedTrip;
+  List<TripLogEntry> get tripHistory => List<TripLogEntry>.unmodifiable(_tripHistory);
+  TripCategory get selectedCategory => _selectedCategory;
+  String? get activeVehicleId => _activeVehicleId;
+  bool get hasHistory => _tripHistory.isNotEmpty;
+  List<TripCategorySummary> get categorySummaries {
+    final aggregates = <TripCategory, _MutableCategorySummary>{
+      for (final category in TripCategory.values)
+        category: _MutableCategorySummary(),
+    };
+
+    for (final entry in _tripHistory) {
+      final aggregate = aggregates[entry.category]!;
+      aggregate.tripCount++;
+      aggregate.totalDuration += entry.duration;
+      final distance = entry.distanceKm;
+      if (distance != null) {
+        aggregate.totalDistanceKm += distance;
+        aggregate.hasDistance = true;
+      }
+    }
+
+    return TripCategory.values
+        .map(
+          (category) => TripCategorySummary(
+            category: category,
+            tripCount: aggregates[category]!.tripCount,
+            totalDuration: aggregates[category]!.totalDuration,
+            totalDistanceKm: aggregates[category]!.hasDistance
+                ? aggregates[category]!.totalDistanceKm
+                : null,
+          ),
+        )
+        .toList(growable: false);
+  }
+  Vehicle? get currentVehicle {
+    if (_vehicles.isEmpty) {
+      return null;
+    }
+    if (_activeVehicleId == null) {
+      return _vehicles.first;
+    }
+    for (final vehicle in _vehicles) {
+      if (vehicle.id == _activeVehicleId) {
+        return vehicle;
+      }
+    }
+    return _vehicles.first;
+  }
+
+  bool get hasVehicles => _vehicles.isNotEmpty;
+
+  Duration get totalLoggedDuration => _tripHistory.fold<Duration>(
+        Duration.zero,
+        (total, entry) => total + entry.duration,
+      );
+
+  double? get totalLoggedDistanceKm {
+    double runningTotal = 0;
+    var hasValue = false;
+    for (final entry in _tripHistory) {
+      final distance = entry.distanceKm;
+      if (distance != null) {
+        runningTotal += distance;
+        hasValue = true;
+      }
+    }
+    return hasValue ? runningTotal : null;
+  }
+
+  double? get totalLoggedAverageSpeedKph {
+    final totalDistance = totalLoggedDistanceKm;
+    if (totalDistance == null) {
+      return null;
+    }
+
+    final totalDurationSeconds = totalLoggedDuration.inSeconds;
+    if (totalDurationSeconds <= 0) {
+      return null;
+    }
+
+    final hours = totalDurationSeconds / 3600;
+    if (hours <= 0) {
+      return null;
+    }
+
+    return totalDistance / hours;
+  }
+
+  void setActiveVehicle(String vehicleId) {
+    if (_tripActive || _activeVehicleId == vehicleId) {
+      return;
+    }
+    final hasVehicle = _vehicles.any((vehicle) => vehicle.id == vehicleId);
+    if (!hasVehicle) {
+      return;
+    }
+    _activeVehicleId = vehicleId;
+    notifyListeners();
+  }
+
+  void selectCategory(TripCategory category) {
+    if (_tripActive || _selectedCategory == category) {
+      return;
+    }
+    _selectedCategory = category;
+    notifyListeners();
+  }
+
+  void toggleTrip() {
+    if (_tripActive) {
+      _stopTrip();
+    } else {
+      _startTrip();
+    }
+  }
+
+  void _startTrip() {
+    if (_vehicles.isEmpty) {
+      return;
+    }
+
+    _timer?.cancel();
+    _tripActive = true;
+    _startTime = DateTime.now();
+    _elapsed = Duration.zero;
+    _lastCompletedTrip = null;
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!hasListeners || _startTime == null) {
+        return;
+      }
+      _elapsed = DateTime.now().difference(_startTime!);
+      notifyListeners();
+    });
+
+    notifyListeners();
+  }
+
+  void _stopTrip() {
+    if (_startTime == null) {
+      return;
+    }
+
+    final endTime = DateTime.now();
+    final duration = endTime.difference(_startTime!);
+    final distanceKm = _distanceEstimator.estimateDistanceKm(duration);
+    final averageSpeedKph =
+        _distanceEstimator.averageSpeedKmPerHour(distanceKm: distanceKm, duration: duration);
+
+    final entry = TripLogEntry(
+      startTime: _startTime!,
+      endTime: endTime,
+      vehicleName: currentVehicle?.displayName ?? 'Unknown vehicle',
+      category: _selectedCategory,
+      duration: duration,
+      distanceKm: distanceKm,
+      averageSpeedKph: averageSpeedKph,
+    );
+
+    _timer?.cancel();
+    _timer = null;
+    _tripActive = false;
+    _elapsed = duration;
+    _startTime = null;
+    _lastCompletedTrip = entry;
+
+    _tripHistory.insert(0, entry);
+    if (_tripHistory.length > _maxHistoryItems) {
+      _tripHistory.removeRange(_maxHistoryItems, _tripHistory.length);
+    }
+
+    notifyListeners();
+  }
+
+  TripLogEntry? removeTripAt(int index) {
+    if (_tripActive || index < 0 || index >= _tripHistory.length) {
+      return null;
+    }
+
+    final removed = _tripHistory.removeAt(index);
+    _lastCompletedTrip = _tripHistory.isEmpty ? null : _tripHistory.first;
+    notifyListeners();
+    return removed;
+  }
+
+  void restoreTrip(TripLogEntry entry, {int? index}) {
+    if (_tripActive) {
+      return;
+    }
+
+    final rawIndex = index ?? 0;
+    final targetIndex = rawIndex < 0
+        ? 0
+        : rawIndex > _tripHistory.length
+            ? _tripHistory.length
+            : rawIndex;
+    _tripHistory.insert(targetIndex, entry);
+    if (_tripHistory.length > _maxHistoryItems) {
+      _tripHistory.removeRange(_maxHistoryItems, _tripHistory.length);
+    }
+
+    _lastCompletedTrip = _tripHistory.isEmpty ? null : _tripHistory.first;
+    notifyListeners();
+  }
+
+  void clearHistory() {
+    if (_tripHistory.isEmpty) {
+      return;
+    }
+    if (_tripActive) {
+      return;
+    }
+
+    _tripHistory.clear();
+    _lastCompletedTrip = null;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+}
+
+class _MutableCategorySummary {
+  int tripCount = 0;
+  Duration totalDuration = Duration.zero;
+  double totalDistanceKm = 0;
+  bool hasDistance = false;
+}
