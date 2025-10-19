@@ -45,6 +45,15 @@ lib/
 4. History screen observes repository stream to refresh list view.
 5. Export actions delegate to `ExportService` to build CSV files.
 
+## Trip lifecycle automation
+- **Smart defaults:** the active vehicle and last-used trip classification pre-populate the start form to reduce taps.
+- **Deferred prompts:** optional metadata such as notes or odometer adjustments can surface after a trip completes so driving
+  is never interrupted.
+- **Offline queueing:** when GPS or network calls fail, the controller stores pending location lookups and retries in the
+ background until successful.
+- **Audit trail:** each trip keeps derived metrics (distance, average speed) plus raw coordinate snapshots so exports remain
+ verifiable.
+
 ## Data Model
 - **Trip**
   - Represents a single recorded journey with a `startTime`, `endTime`, and geospatial coordinates captured as `GeoPoint` snapshots for both the beginning and end of the trip.
@@ -65,4 +74,14 @@ lib/
 - Keep controllers lightweight; consider `Riverpod` or `Provider` for state management once complexity grows.
 - SQLite chosen over Hive for relational querying of trips and vehicles.
 - All optional sync operations occur after local persistence to preserve offline reliability.
+
+## Sync and backup strategy
+- **Local-first writes:** `TripRepository` commits to SQLite before invoking any external integrations.
+- **CSV pipeline:** `ExportService` streams trip rows through a CSV builder so large histories do not exhaust memory, and the
+  resulting files land in the device's documents directory for manual or automated backups.
+- **Google Sheets integration:** a dedicated `SheetsSyncService` (planned) will map the SQLite schema to worksheet tabs. OAuth2
+  tokens are stored securely on-device, and sync jobs can be triggered manually or on a scheduled cadence when connectivity
+  allows.
+- **Conflict handling:** the Sheet acts as a mirror; local edits always win. Sync jobs overwrite remote rows based on trip UUIDs
+  to avoid drift.
 
