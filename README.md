@@ -6,7 +6,7 @@ Mileage Tracker is a Flutter application designed to capture business mileage wi
 ## Key capabilities
 - One-tap start and stop controls that log timestamps and GPS coordinates in real time.
 - Automatic calculation of trip duration, estimated distance, and average speed once a trip ends.
-- Configurable vehicle profiles, default vehicle selection, and optional odometer adjustments.
+- Quick vehicle selection keeps the last used vehicle preselected for faster logging.
 - Trip categorisation (Business, Personal, Commute, Other) with room for additional notes or tags.
 - Works offline-first: trips persist locally before any optional cloud sync occurs.
 
@@ -33,6 +33,10 @@ Backups can be scheduled externally (e.g., Google Drive automations, desktop syn
 | Data (`lib/services`) | SQLite persistence, location services, and export/sync connectors. | `sqflite`, `path_provider`, `geolocator`, `geocoding`, Google Sheets/CSV helpers |
 
 Refer to [`architecture_notes.md`](architecture_notes.md) for deeper design details.
+
+## Release target
+The initial distribution format for Mileage Tracker is an Android build published on Google Play. Additional platforms will be
+considered once the Android release is stable and telemetry confirms feature completeness.
 
 ## Development quick start
 1. Install [Flutter 3.35.5](https://docs.flutter.dev/get-started/install) and run `flutter doctor`.
