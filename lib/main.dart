@@ -40,6 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _Vehicle(id: 'vehicle-3', label: 'Hybrid - GREEN1'),
   ];
   String? _activeVehicleId;
+  final List<_TripCategory> _tripCategories = const <_TripCategory>[
+    _TripCategory(id: 'business', label: 'Business'),
+    _TripCategory(id: 'personal', label: 'Personal'),
+    _TripCategory(id: 'commute', label: 'Commute'),
+    _TripCategory(id: 'other', label: 'Other'),
+  ];
+  String? _activeCategoryId;
 
   static const int _maxHistoryItems = 5;
 
@@ -47,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _activeVehicleId = _vehicles.first.id;
+    _activeCategoryId = _tripCategories.first.id;
   }
 
   void toggleTrip() {
@@ -71,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
         startTime: startTime!,
         endTime: stopTime,
         vehicleName: _currentVehicle.label,
+        categoryLabel: _currentCategory.label,
       );
       _timer?.cancel();
       setState(() {
@@ -113,14 +122,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final start = _formatTime(record.startTime);
     final end = _formatTime(record.endTime);
     final duration = _formatDuration(record.duration);
-    return 'Trip from $start to $end · ${record.vehicleName} ($duration)';
+    return 'Trip from $start to $end · ${record.vehicleName} · ${record.categoryLabel} ($duration)';
   }
 
   @override
   Widget build(BuildContext context) {
     final vehicleLabel = _currentVehicle.label;
+    final categoryLabel = _currentCategory.label;
     final statusText = tripActive
-        ? 'Trip started at ${_formatTime(startTime!)}\nVehicle: $vehicleLabel\nElapsed: ${_formatDuration(elapsed)}'
+        ? 'Trip started at ${_formatTime(startTime!)}\nVehicle: $vehicleLabel\nCategory: $categoryLabel\nElapsed: ${_formatDuration(elapsed)}'
         : lastTripSummary ?? 'No trip in progress';
 
     return Scaffold(
@@ -147,6 +157,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (value == null) return;
                       setState(() {
                         _activeVehicleId = value;
+                      });
+                    },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _activeCategoryId,
+              decoration: const InputDecoration(
+                labelText: 'Trip category',
+                border: OutlineInputBorder(),
+              ),
+              items: _tripCategories
+                  .map((category) => DropdownMenuItem<String>(
+                        value: category.id,
+                        child: Text(category.label),
+                      ))
+                  .toList(),
+              onChanged: tripActive
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _activeCategoryId = value;
                       });
                     },
             ),
@@ -202,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                        '${record.vehicleName} · Elapsed ${_formatDuration(record.duration)}'),
+                        '${record.vehicleName} · ${record.categoryLabel} · Elapsed ${_formatDuration(record.duration)}'),
                   );
                 },
               ),
@@ -220,6 +252,14 @@ class _HomeScreenState extends State<HomeScreen> {
       orElse: () => _vehicles.first,
     );
   }
+
+  _TripCategory get _currentCategory {
+    final activeId = _activeCategoryId;
+    return _tripCategories.firstWhere(
+      (category) => category.id == activeId,
+      orElse: () => _tripCategories.first,
+    );
+  }
 }
 
 class _TripRecord {
@@ -227,17 +267,26 @@ class _TripRecord {
     required this.startTime,
     required this.endTime,
     required this.vehicleName,
+    required this.categoryLabel,
   });
 
   final DateTime startTime;
   final DateTime endTime;
   final String vehicleName;
+  final String categoryLabel;
 
   Duration get duration => endTime.difference(startTime);
 }
 
 class _Vehicle {
   const _Vehicle({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
+class _TripCategory {
+  const _TripCategory({required this.id, required this.label});
 
   final String id;
   final String label;
