@@ -40,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _Vehicle(id: 'vehicle-3', label: 'Hybrid - GREEN1'),
   ];
   String? _activeVehicleId;
+  _TripCategory _selectedCategory = _TripCategory.business;
 
   static const int _maxHistoryItems = 5;
 
@@ -71,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
         startTime: startTime!,
         endTime: stopTime,
         vehicleName: _currentVehicle.label,
+        category: _selectedCategory,
       );
       _timer?.cancel();
       setState(() {
@@ -113,14 +115,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final start = _formatTime(record.startTime);
     final end = _formatTime(record.endTime);
     final duration = _formatDuration(record.duration);
-    return 'Trip from $start to $end · ${record.vehicleName} ($duration)';
+    return 'Trip from $start to $end · ${record.vehicleName} · ${record.category.label} ($duration)';
   }
 
   @override
   Widget build(BuildContext context) {
     final vehicleLabel = _currentVehicle.label;
     final statusText = tripActive
-        ? 'Trip started at ${_formatTime(startTime!)}\nVehicle: $vehicleLabel\nElapsed: ${_formatDuration(elapsed)}'
+        ? 'Trip started at ${_formatTime(startTime!)}\nVehicle: $vehicleLabel\nCategory: ${_selectedCategory.label}\nElapsed: ${_formatDuration(elapsed)}'
         : lastTripSummary ?? 'No trip in progress';
 
     return Scaffold(
@@ -151,6 +153,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
             ),
             const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Trip purpose',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: _TripCategory.values.map((category) {
+                return ChoiceChip(
+                  label: Text(category.label),
+                  selected: _selectedCategory == category,
+                  onSelected: tripActive
+                      ? null
+                      : (_) {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
             Expanded(
               child: Center(
                 child: Column(
@@ -202,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                        '${record.vehicleName} · Elapsed ${_formatDuration(record.duration)}'),
+                        '${record.vehicleName} · ${record.category.label} · Elapsed ${_formatDuration(record.duration)}'),
                   );
                 },
               ),
@@ -227,11 +254,13 @@ class _TripRecord {
     required this.startTime,
     required this.endTime,
     required this.vehicleName,
+    required this.category,
   });
 
   final DateTime startTime;
   final DateTime endTime;
   final String vehicleName;
+  final _TripCategory category;
 
   Duration get duration => endTime.difference(startTime);
 }
@@ -241,4 +270,21 @@ class _Vehicle {
 
   final String id;
   final String label;
+}
+
+enum _TripCategory { business, personal, commute, other }
+
+extension on _TripCategory {
+  String get label {
+    switch (this) {
+      case _TripCategory.business:
+        return 'Business';
+      case _TripCategory.personal:
+        return 'Personal';
+      case _TripCategory.commute:
+        return 'Commute';
+      case _TripCategory.other:
+        return 'Other';
+    }
+  }
 }
