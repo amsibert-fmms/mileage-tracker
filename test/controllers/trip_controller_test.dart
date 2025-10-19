@@ -164,6 +164,95 @@ void main() {
       });
     });
 
+    test('calculates average speed across history', () {
+      fakeAsync((async) {
+        final controller = TripController(
+          vehicles: _vehicles,
+          distanceEstimator: const DistanceEstimator(fallbackSpeedKph: 60),
+        );
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 20));
+        controller.toggleTrip();
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 40));
+        controller.toggleTrip();
+
+        expect(controller.totalLoggedDistanceKm, closeTo(60, 0.1));
+        expect(controller.totalLoggedAverageSpeedKph, closeTo(60, 0.1));
+
+        controller.dispose();
+      });
+    });
+
+    test('supports removing and restoring trips', () {
+      fakeAsync((async) {
+        final controller = TripController(
+          vehicles: _vehicles,
+          distanceEstimator: const DistanceEstimator(fallbackSpeedKph: 60),
+        );
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 15));
+        controller.toggleTrip();
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 30));
+        controller.toggleTrip();
+
+        final removed = controller.removeTripAt(0);
+        expect(removed, isNotNull);
+        expect(controller.tripHistory, hasLength(1));
+        expect(controller.lastCompletedTrip, isNotNull);
+        expect(
+          controller.lastCompletedTrip!.startTime,
+          controller.tripHistory.first.startTime,
+        );
+
+        controller.restoreTrip(removed!, index: 0);
+
+        expect(controller.tripHistory, hasLength(2));
+        expect(
+          controller.tripHistory.first.startTime,
+          removed.startTime,
+        );
+        expect(controller.lastCompletedTrip, isNotNull);
+        expect(
+          controller.lastCompletedTrip!.startTime,
+          controller.tripHistory.first.startTime,
+        );
+
+        controller.dispose();
+      });
+    });
+
+    test('clears trip history when requested', () {
+      fakeAsync((async) {
+        final controller = TripController(
+          vehicles: _vehicles,
+          distanceEstimator: const DistanceEstimator(fallbackSpeedKph: 60),
+        );
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 10));
+        controller.toggleTrip();
+
+        controller.toggleTrip();
+        async.elapse(const Duration(minutes: 5));
+        controller.toggleTrip();
+
+        expect(controller.tripHistory, hasLength(2));
+
+        controller.clearHistory();
+
+        expect(controller.tripHistory, isEmpty);
+        expect(controller.lastCompletedTrip, isNull);
+
+        controller.dispose();
+      });
+    });
+
     test('does not start trips when there are no vehicles', () {
       fakeAsync((async) {
         final controller = TripController(vehicles: const []);

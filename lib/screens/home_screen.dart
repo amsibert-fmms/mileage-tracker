@@ -44,10 +44,25 @@ class _HomeScreenState extends State<HomeScreen> {
         final totalDuration = _controller.totalLoggedDuration;
         final totalDistance = _controller.totalLoggedDistanceKm;
         final categorySummaries = _controller.categorySummaries;
-        final hasHistory = tripHistory.isNotEmpty;
+        final hasHistory = _controller.hasHistory;
+        final tripActive = _controller.tripActive;
+
+        final totalAverageSpeed = _controller.totalLoggedAverageSpeedKph;
+        final totalAverageSpeedLabel =
+            totalAverageSpeed == null ? null : _formatSpeedLong(totalAverageSpeed);
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Mileage Tracker')),
+          appBar: AppBar(
+            title: const Text('Mileage Tracker'),
+            actions: [
+              if (hasHistory)
+                IconButton(
+                  tooltip: 'Clear history',
+                  onPressed: tripActive ? null : () => _confirmClearHistory(context),
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                ),
+            ],
+          ),
           body: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Column(
@@ -93,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     totalTrips: tripHistory.length,
                     totalDurationLabel: _formatDuration(totalDuration),
                     totalDistanceLabel: _formatDistanceLong(totalDistance),
+                    averageSpeedLabel: totalAverageSpeedLabel,
                   ),
                 if (hasHistory) const SizedBox(height: 16),
                 if (hasHistory)
@@ -147,18 +163,44 @@ class _HomeScreenState extends State<HomeScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final entry = tripHistory[index];
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(
-                            Icons.check_circle_outline,
-                            color: Colors.teal,
+                        return Dismissible(
+                          key: ValueKey(
+                            '${entry.startTime.millisecondsSinceEpoch}-${entry.endTime.millisecondsSinceEpoch}-${entry.vehicleName}',
                           ),
-                          title: Text(
-                            '${_formatTime(entry.startTime)} - ${_formatTime(entry.endTime)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          direction:
+                              tripActive ? DismissDirection.none : DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                            ),
                           ),
-                          subtitle: Text(
-                            '${entry.vehicleName} · ${entry.category.label} · ${_formatDuration(entry.duration)} · ${_formatDistanceShort(entry.distanceKm)} · ${_formatSpeedShort(entry.averageSpeedKph)}',
+                          onDismissed: tripActive
+                              ? null
+                              : (_) => _handleTripDismissed(
+                                    context: context,
+                                    index: index,
+                                    entry: entry,
+                                  ),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.teal,
+                            ),
+                            title: Text(
+                              '${_formatTime(entry.startTime)} - ${_formatTime(entry.endTime)}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              '${entry.vehicleName} · ${entry.category.label} · Elapsed ${_formatDuration(entry.duration)} · ${_formatDistanceShort(entry.distanceKm)} · ${_formatSpeedShort(entry.averageSpeedKph)}',
+                            ),
                           ),
                         );
                       },
@@ -234,6 +276,73 @@ class _HomeScreenState extends State<HomeScreen> {
     return speedKph == null
         ? '-- km/h'
         : '${speedKph.toStringAsFixed(1)} km/h';
+  }
+
+  void _handleTripDismissed({
+    required BuildContext context,
+    required int index,
+    required TripLogEntry entry,
+  }) {
+    final removed = _controller.removeTripAt(index);
+    if (removed == null) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Removed trip starting at ${_formatTime(removed.startTime)}',
+          ),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => _controller.restoreTrip(removed, index: index),
+          ),
+        ),
+      );
+  }
+
+  Future<void> _confirmClearHistory(BuildContext context) async {
+    if (_controller.tripActive || _controller.tripHistory.isEmpty) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear trip history?'),
+          content: const Text(
+            'This will permanently remove all logged trips from the demo session.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      _controller.clearHistory();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Trip history cleared')),
+        );
+    }
   }
 }
 
@@ -348,11 +457,13 @@ class _SummaryCard extends StatelessWidget {
     required this.totalTrips,
     required this.totalDurationLabel,
     required this.totalDistanceLabel,
+    this.averageSpeedLabel,
   });
 
   final int totalTrips;
   final String totalDurationLabel;
   final String totalDistanceLabel;
+  final String? averageSpeedLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +474,7 @@ class _SummaryCard extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 360;
-            final content = [
+            final tiles = <Widget>[
               _SummaryTile(
                 label: 'Trips',
                 value: '$totalTrips',
@@ -381,13 +492,23 @@ class _SummaryCard extends StatelessWidget {
               ),
             ];
 
+            if (averageSpeedLabel != null) {
+              tiles.add(
+                _SummaryTile(
+                  label: 'Avg speed',
+                  value: averageSpeedLabel!,
+                  icon: Icons.speed_outlined,
+                ),
+              );
+            }
+
             if (isCompact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (var i = 0; i < content.length; i++) ...[
-                    content[i],
-                    if (i < content.length - 1) const SizedBox(height: 12),
+                  for (var i = 0; i < tiles.length; i++) ...[
+                    tiles[i],
+                    if (i < tiles.length - 1) const SizedBox(height: 12),
                   ],
                 ],
               );
@@ -395,7 +516,7 @@ class _SummaryCard extends StatelessWidget {
 
             return Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: content
+              children: tiles
                   .map(
                     (tile) => Expanded(
                       child: Padding(
