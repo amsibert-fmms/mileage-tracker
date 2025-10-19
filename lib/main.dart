@@ -33,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Duration elapsed = Duration.zero;
   Timer? _timer;
   String? lastTripSummary;
+  final List<_TripRecord> _tripHistory = <_TripRecord>[];
+
+  static const int _maxHistoryItems = 5;
 
   void toggleTrip() {
     if (!tripActive) {
@@ -52,14 +55,18 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } else {
       final stopTime = DateTime.now();
-      final duration = stopTime.difference(startTime!);
+      final record = _TripRecord(startTime: startTime!, endTime: stopTime);
       _timer?.cancel();
       setState(() {
         tripActive = false;
-        elapsed = duration;
+        elapsed = record.duration;
         startTime = null;
-        lastTripSummary =
-            "Trip stopped at ${_formatTime(stopTime)} (${_formatDuration(duration)})";
+        _tripHistory.insert(0, record);
+        if (_tripHistory.length > _maxHistoryItems) {
+          _tripHistory.removeRange(
+              _maxHistoryItems, _tripHistory.length);
+        }
+        lastTripSummary = _formatTripSummary(record);
       });
     }
   }
@@ -86,6 +93,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$hoursLabel$minutesLabel$secondsLabel'.trim();
   }
 
+  String _formatTripSummary(_TripRecord record) {
+    final start = _formatTime(record.startTime);
+    final end = _formatTime(record.endTime);
+    final duration = _formatDuration(record.duration);
+    return 'Trip from $start to $end ($duration)';
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusText = tripActive
@@ -94,27 +108,77 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mileage Tracker')),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(statusText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 40),
-            ElevatedButton.icon(
-              onPressed: toggleTrip,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                backgroundColor: tripActive ? Colors.red : Colors.teal,
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(statusText,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 40),
+                    ElevatedButton.icon(
+                      onPressed: toggleTrip,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 40, vertical: 16),
+                        backgroundColor: tripActive ? Colors.red : Colors.teal,
+                      ),
+                      icon: Icon(tripActive ? Icons.stop : Icons.play_arrow),
+                      label: Text(tripActive ? 'Stop Trip' : 'Start Trip',
+                          style: const TextStyle(fontSize: 18)),
+                    ),
+                  ],
+                ),
               ),
-              icon: Icon(tripActive ? Icons.stop : Icons.play_arrow),
-              label: Text(tripActive ? 'Stop Trip' : 'Start Trip',
-                  style: const TextStyle(fontSize: 18)),
             ),
+            if (_tripHistory.isNotEmpty) ...[
+              const Divider(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Recent trips',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _tripHistory.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final record = _tripHistory[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.check_circle_outline,
+                        color: Colors.teal),
+                    title: Text(
+                      '${_formatTime(record.startTime)} - ${_formatTime(record.endTime)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text('Elapsed ${_formatDuration(record.duration)}'),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+class _TripRecord {
+  const _TripRecord({required this.startTime, required this.endTime});
+
+  final DateTime startTime;
+  final DateTime endTime;
+
+  Duration get duration => endTime.difference(startTime);
 }
