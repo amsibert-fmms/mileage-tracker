@@ -306,12 +306,7 @@ class TripController extends ChangeNotifier {
         distanceKm: distanceKm,
         averageSpeedKph: averageSpeedKph,
       );
-      _lastCompletedTrip = TripLogEntry.fromTrip(
-        persisted.trip,
-        route: persisted.route,
-        distanceKm: persisted.distanceKm,
-        averageSpeedKph: persisted.averageSpeedKph,
-      );
+      _lastCompletedTrip = _toLogEntry(persisted);
       _locationError = null;
       closingOdometer = persisted.trip.endOdometer;
     } finally {
@@ -418,16 +413,7 @@ class TripController extends ChangeNotifier {
       _activeVehicleId = active.id;
     }
     final trips = await _tripRepository.fetchTrips(limit: _maxHistoryItems);
-    _tripHistory = trips
-        .map(
-          (trip) => TripLogEntry.fromTrip(
-            trip.trip,
-            route: trip.route,
-            distanceKm: trip.distanceKm,
-            averageSpeedKph: trip.averageSpeedKph,
-          ),
-        )
-        .toList(growable: false);
+    _updateTripHistory(trips);
     _loading = false;
     notifyListeners();
   }
@@ -442,18 +428,22 @@ class TripController extends ChangeNotifier {
   }
 
   void _onTripsChanged(List<PersistedTrip> trips) {
-    _tripHistory = trips
-        .map(
-          (trip) => TripLogEntry.fromTrip(
-            trip.trip,
-            route: trip.route,
-            distanceKm: trip.distanceKm,
-            averageSpeedKph: trip.averageSpeedKph,
-          ),
-        )
-        .toList(growable: false);
-    _lastCompletedTrip = _tripHistory.isEmpty ? null : _tripHistory.first;
+    _updateTripHistory(trips);
     notifyListeners();
+  }
+
+  void _updateTripHistory(List<PersistedTrip> trips) {
+    _tripHistory = trips.map(_toLogEntry).toList(growable: false);
+    _lastCompletedTrip = _tripHistory.isEmpty ? null : _tripHistory.first;
+  }
+
+  TripLogEntry _toLogEntry(PersistedTrip persisted) {
+    return TripLogEntry.fromTrip(
+      persisted.trip,
+      route: persisted.route,
+      distanceKm: persisted.distanceKm,
+      averageSpeedKph: persisted.averageSpeedKph,
+    );
   }
 }
 
